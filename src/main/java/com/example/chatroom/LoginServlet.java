@@ -18,6 +18,7 @@ import java.util.Random;
 public class LoginServlet extends HttpServlet {
     private static final int CAPTCHA_WIDTH = 100;
     private static final int CAPTCHA_HEIGHT = 40;
+    private final ChatRoom chatRoom = new ChatRoom();
     private static final HashSet<String> registeredUsers = new HashSet<>(); // 用于模拟已注册用户的集合
 
     @Override
@@ -39,17 +40,21 @@ public class LoginServlet extends HttpServlet {
         HttpSession session = request.getSession();
         String generatedCaptcha = (String) session.getAttribute("captcha");
 
-        if (username != null && !username.isEmpty() && generatedCaptcha != null && generatedCaptcha.equalsIgnoreCase(userInputCaptcha)) {
-            // 检查用户名是否已存在
-            if (registeredUsers.contains(username)) {
-                response.sendRedirect("login.jsp?error=2"); // 错误码2：用户名已存在
+        synchronized (chatRoom) {
+            if (username != null && !username.isEmpty() && generatedCaptcha != null && generatedCaptcha.equalsIgnoreCase(userInputCaptcha)) {
+                // 检查用户名是否已存在
+                if (chatRoom.isUsernameTaken(username)) {
+                    response.sendRedirect("login.jsp?error=2"); // 错误码2：用户名已存在
+                } else {
+                    User user = new User(username);
+                    chatRoom.addUser(user);
+                    request.getSession().setAttribute("user", user);
+                    request.getSession().setAttribute("chatRoom", chatRoom);
+                    response.sendRedirect("chat.jsp");
+                }
             } else {
-                registeredUsers.add(username); // 将新用户名添加到已注册用户集合
-                session.setAttribute("username", username);
-                response.sendRedirect("chatroom.jsp");
+                response.sendRedirect("login.jsp?error=1"); // 错误码1：验证码错误
             }
-        } else {
-            response.sendRedirect("login.jsp?error=1"); // 错误码1：验证码错误
         }
     }
 
